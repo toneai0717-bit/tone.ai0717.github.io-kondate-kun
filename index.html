@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>任せろ献立くん | ⚡️ Interactive Stock v9.3</title>
+    <title>任せて献立くん | ⚡️ Interactive Stock v9.4</title>
     <style>
         :root { --primary-color: #e67e22; --bg-color: #fcfaf5; --card-bg: #ffffff; --text-main: #2c3e50; --accent-soft: #fdf2e9; }
         body { font-family: "Helvetica Neue", Arial, sans-serif; background: var(--bg-color); color: var(--text-main); padding: 20px; margin: 0; line-height: 1.6; }
@@ -40,7 +40,7 @@
 </head>
 <body>
     <div class="container">
-        <header><h1>⚡️ 任せろ献立くん</h1><p>献立を考えるのがめんどくさい？任せとき！</p></header>
+        <header><h1>⚡️ 任せて献立くん</h1><p>献立を考えるのがめんどくさい？任せとき！</p></header>
         <div class="api-settings"><span>🔑 API:</span><input type="password" id="apiKeyInput" onchange="saveKey()"></div>
         <div class="card">
             <h3 class="section-title">人数</h3>
@@ -65,7 +65,7 @@
                 <button class="chip" onclick="toggleChip('チーズ', this)">🧀 チーズ</button><button class="chip" onclick="toggleChip('ツナ缶', this)">🐟 ツナ缶</button>
             </div>
             <div class="input-area">
-                <input type="text" id="ingredients" placeholder="食材がない時はそのままでOK！">
+                <input type="text" id="ingredients" placeholder="空白でも入力してもええで">
                 <button class="clear-btn" onclick="resetAll()">リセット</button>
             </div>
             <h3 class="section-title">今日のこだわり</h3>
