@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任せろ献立くん | ⚡️ Interactive Stock v9.3</title>
+    <style>
+        :root { --primary-color: #e67e22; --bg-color: #fcfaf5; --card-bg: #ffffff; --text-main: #2c3e50; --accent-soft: #fdf2e9; }
+        body { font-family: "Helvetica Neue", Arial, sans-serif; background: var(--bg-color); color: var(--text-main); padding: 20px; margin: 0; line-height: 1.6; }
+        .container { max-width: 700px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 30px; }
+        header h1 { font-size: 32px; font-weight: 900; color: var(--primary-color); margin: 0; }
+        .card { background: var(--card-bg); padding: 25px; border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.03); margin-bottom: 25px; }
+        .api-settings { background: #444; color: #ccc; padding: 8px 15px; border-radius: 30px; margin-bottom: 25px; display: flex; align-items: center; font-size: 10px; opacity: 0.5; }
+        .api-settings input { background: transparent; border: none; color: white; margin-left: 10px; flex: 1; outline: none; }
+        h3.section-title { font-size: 14px; margin-bottom: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+        .selector-group { display: flex; gap: 8px; margin-bottom: 20px; }
+        .selector-item { flex: 1; text-align: center; padding: 10px; border: 1.5px solid #eee; border-radius: 15px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .selector-item.active { background: var(--primary-color); color: white; border-color: var(--primary-color); box-shadow: 0 5px 12px rgba(230, 126, 34, 0.2); }
+        .chip-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
+        /* チップの基本スタイル */
+        .chip { background: #fff; border: 1.5px solid #eee; padding: 8px 14px; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.2s; }
+        /* ONになった時のスタイル */
+        .chip.active { background: var(--primary-color); color: white; border-color: var(--primary-color); box-shadow: 0 4px 8px rgba(230, 126, 34, 0.2); }
+        .input-area { position: relative; }
+        input[type="text"], select { width: 100%; padding: 15px; border: 1.5px solid #eee; border-radius: 15px; font-size: 16px; box-sizing: border-box; outline: none; margin-bottom: 15px; }
+        .clear-btn { position: absolute; right: 10px; top: 12px; background: #eee; border: none; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 11px; }
+        .main-btn { background: var(--primary-color); color: white; border: none; padding: 20px; border-radius: 40px; cursor: pointer; font-size: 20px; font-weight: bold; width: 100%; box-shadow: 0 8px 25px rgba(230,126,34,0.2); transition: 0.3s; margin-top: 10px; }
+        .recipe-item { background: white; border-radius: 24px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.03); margin-top: 25px; position: relative; }
+        .fav-btn { position: absolute; top: 20px; right: 20px; background: #fff; border: 1.5px solid #eee; padding: 8px 12px; border-radius: 12px; cursor: pointer; font-size: 14px; }
+        .fav-btn.active { background: #ffedeb; border-color: #ff6b6b; color: #ff6b6b; }
+        .materials-box { background: #fafafa; padding: 15px; border-radius: 15px; font-size: 14px; margin: 15px 0; }
+        .btn-group { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+        .btn-link { text-align: center; padding: 12px 0; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 13px; }
+        .btn-yt { background: #fceceb; color: #e03131; }
+        .btn-photo { background: #f1f3f5; color: #495057; }
+        #fav-section { margin-top: 50px; border-top: 2px dashed #ddd; padding-top: 30px; }
+        #loading { text-align: center; display: none; padding: 40px; font-weight: bold; color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header><h1>⚡️ 任せろ献立くん</h1><p>献立を考えるのがめんどくさい？任せとき！</p></header>
+        <div class="api-settings"><span>🔑 API:</span><input type="password" id="apiKeyInput" onchange="saveKey()"></div>
+        <div class="card">
+            <h3 class="section-title">人数</h3>
+            <div class="selector-group">
+                <div class="selector-item" onclick="setPerson(1, this)">1人分</div><div class="selector-item active" onclick="setPerson(2, this)">2人分</div><div class="selector-item" onclick="setPerson(3, this)">3人分</div><div class="selector-item" onclick="setPerson(4, this)">4人分</div><div class="selector-item" onclick="setPerson(5, this)">5人分</div>
+            </div>
+            <h3 class="section-title">何を作る？</h3>
+            <div class="selector-group">
+                <div class="selector-item active" onclick="setType('主菜（メイン）', this)">🍚 メイン</div><div class="selector-item" onclick="setType('副菜（あと一品）', this)">🥗 副菜</div><div class="selector-item" onclick="setType('スープ（汁物）', this)">🥣 スープ</div>
+            </div>
+            <h3 class="section-title">冷蔵庫の食材（ポチポチ選んでな）</h3>
+            <div class="chip-container" id="chipBox">
+                <button class="chip" onclick="toggleChip('豚肉', this)">🐷 豚肉</button><button class="chip" onclick="toggleChip('鶏肉', this)">🍗 鶏肉</button>
+                <button class="chip" onclick="toggleChip('ひき肉', this)">🥡 ひき肉</button><button class="chip" onclick="toggleChip('鮭', this)">🐟 鮭</button>
+                <button class="chip" onclick="toggleChip('ベーコン', this)">🥓 ベーコン</button><button class="chip" onclick="toggleChip('玉ねぎ', this)">🧅 玉ねぎ</button>
+                <button class="chip" onclick="toggleChip('にんじん', this)">🥕 にんじん</button><button class="chip" onclick="toggleChip('キャベツ', this)">🥬 キャベツ</button>
+                <button class="chip" onclick="toggleChip('じゃがいも', this)">🥔 じゃがいも</button><button class="chip" onclick="toggleChip('大根', this)">🥢 大根</button>
+                <button class="chip" onclick="toggleChip('白菜', this)">🥬 白菜</button><button class="chip" onclick="toggleChip('なす', this)">🍆 なす</button>
+                <button class="chip" onclick="toggleChip('ピーマン', this)">🫑 ピーマン</button><button class="chip" onclick="toggleChip('もやし', this)">🌱 もやし</button>
+                <button class="chip" onclick="toggleChip('ブロッコリー', this)">🥦 ブロッコリー</button><button class="chip" onclick="toggleChip('たまご', this)">🥚 たまご</button>
+                <button class="chip" onclick="toggleChip('豆腐', this)">⬜ 豆腐</button><button class="chip" onclick="toggleChip('納豆', this)">🥢 納豆</button>
+                <button class="chip" onclick="toggleChip('チーズ', this)">🧀 チーズ</button><button class="chip" onclick="toggleChip('ツナ缶', this)">🐟 ツナ缶</button>
+            </div>
+            <div class="input-area">
+                <input type="text" id="ingredients" placeholder="食材がない時はそのままでOK！">
+                <button class="clear-btn" onclick="resetAll()">リセット</button>
+            </div>
+            <h3 class="section-title">今日のこだわり</h3>
+            <select id="condition">
+                <option value="500kcal以内のヘルシーな料理">🌿 ヘルシー</option><option value="洗い物最小限の爆速レシピ">🍳 洗い物したくない</option><option value="ビールに合うガッツリおつまみ">🍺 ガッツリおつまみ</option><option value="子どもが喜ぶ味付け">🧒 子ども優先</option><option value="冷蔵庫一掃レシピ">♻️ 冷蔵庫を空にしたい</option>
+            </select>
+            <button class="main-btn" onclick="generate()">献立を3つ爆速で出す！</button>
+        </div>
+        <div id="loading">⚡️ AIアニキが考案中...</div>
+        <div id="result"></div>
+        <div id="fav-section"><h2 style="text-align: center; color: #aaa;">⭐ お気に入り保存済み</h2><div id="fav-list"></div></div>
+    </div>
+    <script>
+        let selectedPerson = 2, selectedType = '主菜（メイン）', selectedChips = [], favorites = JSON.parse(localStorage.getItem('fav_recipes') || '[]');
+        window.onload = () => { if(localStorage.getItem('openai_api_key')) document.getElementById('apiKeyInput').value = localStorage.getItem('openai_api_key'); renderFavs(); }
+        const saveKey = () => localStorage.setItem('openai_api_key', document.getElementById('apiKeyInput').value);
+        
+        const setPerson = (n, el) => { selectedPerson = n; updateActive(el); }
+        const setType = (t, el) => { selectedType = t; updateActive(el); }
+        const updateActive = (el) => { el.parentElement.querySelectorAll('.selector-item').forEach(i => i.classList.remove('active')); el.classList.add('active'); }
+
+        // チップのON/OFF切り替え
+        function toggleChip(name, el) {
+            el.classList.toggle('active');
+            if (el.classList.contains('active')) {
+                selectedChips.push(name);
+            } else {
+                selectedChips = selectedChips.filter(c => c !== name);
+            }
+            updateIngredientInput();
+        }
+
+        // 入力欄をチップの状態と同期
+        function updateIngredientInput() {
+            document.getElementById('ingredients').value = selectedChips.join(', ');
+        }
+
+        // 全リセット
+        function resetAll() {
+            document.getElementById('ingredients').value = '';
+            selectedChips = [];
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        }
+
+        async function generate() {
+            const key = document.getElementById('apiKeyInput').value, ing = document.getElementById('ingredients').value;
+            if(!key) return alert('APIキーを入れてな！');
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').innerHTML = '';
+            const ingText = ing ? `食材:「${ing}」` : "食材指定なし（家にある基本調味料で）";
+            try {
+                const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify({
+                        model: "gpt-4o-mini",
+                        messages: [
+                            { role: "system", content: "あなたは多忙な親を助ける爆速料理研究家。家庭の調味料でできる少し意外で新しい提案をしてください。" },
+                            { role: "user", content: `【${selectedPerson}人分】、種類:「${selectedType}」、${ingText}、こだわり:「${document.getElementById('condition').value}」。必ず異なる献立を3種類、材料（分量明確に）と手順。JSON:{"recipes":[{"name":"料理名","cal":"kcal","wash":"★☆☆","materials":"材料(分量)","steps":"手順(3行以内)","time":"15分"}]}` }
+                        ],
+                        response_format: { type: "json_object" }
+                    })
+                });
+                const data = await res.json();
+                JSON.parse(data.choices[0].message.content).recipes.slice(0, 3).forEach(r => renderRecipe(r, 'result', true));
+            } catch (e) { alert('エラーや！APIキー確認してな！'); } finally { document.getElementById('loading').style.display = 'none'; }
+        }
+
+        function renderRecipe(r, targetId, isNew) {
+            const div = document.createElement('div'); div.className = 'recipe-item';
+            div.innerHTML = `<button class="fav-btn ${favorites.some(f=>f.name===r.name)?'active':''}" onclick="toggleFav('${encodeURIComponent(JSON.stringify(r))}', this)">⭐ 保存</button>
+                <div style="padding-right: 80px;"><p style="font-weight:bold; font-size:18px; margin:0;">${r.name}</p><div style="font-size:12px; color:#888;">⏱ ${r.time} / 🔥 ${r.cal} / 🧼 洗い物:${r.wash}</div></div>
+                <div class="materials-box"><strong>材料 (${selectedPerson}人分):</strong><br>${r.materials}</div><p style="font-size:14px;"><strong>手順:</strong><br>${r.steps}</p>
+                <div class="btn-group"><a href="https://www.youtube.com/results?search_query=${r.name} レシピ" target="_blank" class="btn-link btn-yt">動画で確認する</a><a href="https://www.google.com/search?tbm=isch&q=${r.name} 料理" target="_blank" class="btn-link btn-photo">写真で確認する</a></div>`;
+            document.getElementById(targetId).appendChild(div);
+        }
+
+        function toggleFav(dataStr, btn) {
+            const r = JSON.parse(decodeURIComponent(dataStr)), idx = favorites.findIndex(f => f.name === r.name);
+            if(idx > -1) { favorites.splice(idx, 1); btn.classList.remove('active'); }
+            else { favorites.push(r); btn.classList.add('active'); }
+            localStorage.setItem('fav_recipes', JSON.stringify(favorites)); renderFavs();
+        }
+        function renderFavs() { document.getElementById('fav-list').innerHTML = ''; favorites.forEach(r => renderRecipe(r, 'fav-list', false)); }
+    </script>
+</body>
+</html>
