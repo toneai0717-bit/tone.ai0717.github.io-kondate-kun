@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>任せて献立くん | ⚡️ Interactive Stock v11.0</title>
+    <title>任せて献立くん | ⚡️ Perfect Edition v12.0</title>
     <style>
         :root { --primary-color: #e67e22; --bg-color: #fcfaf5; --card-bg: #ffffff; --text-main: #2c3e50; --accent-soft: #fdf2e9; }
         body { font-family: "Helvetica Neue", Arial, sans-serif; background: var(--bg-color); color: var(--text-main); padding: 20px; margin: 0; line-height: 1.6; }
@@ -14,9 +14,12 @@
         .api-settings { background: #444; color: #ccc; padding: 8px 15px; border-radius: 30px; margin-bottom: 25px; display: flex; align-items: center; font-size: 10px; opacity: 0.5; }
         .api-settings input { background: transparent; border: none; color: white; margin-left: 10px; flex: 1; outline: none; }
         h3.section-title { font-size: 14px; margin-bottom: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
-        .selector-group { display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }
-        .selector-item { flex: 1; min-width: 60px; text-align: center; padding: 10px; border: 1.5px solid #eee; border-radius: 15px; cursor: pointer; font-weight: bold; font-size: 14px; white-space: nowrap; }
+        
+        /* 人数ボタンを1行に収める魔法のCSS */
+        .selector-group { display: flex; gap: 5px; margin-bottom: 20px; width: 100%; }
+        .selector-item { flex: 1; text-align: center; padding: 10px 2px; border: 1.5px solid #eee; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 13px; white-space: nowrap; transition: 0.2s; }
         .selector-item.active { background: var(--primary-color); color: white; border-color: var(--primary-color); box-shadow: 0 5px 12px rgba(230, 126, 34, 0.2); }
+
         .chip-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
         .chip { background: #fff; border: 1.5px solid #eee; padding: 8px 14px; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.2s; }
         .chip.active { background: var(--primary-color); color: white; border-color: var(--primary-color); box-shadow: 0 4px 8px rgba(230, 126, 34, 0.2); }
@@ -33,7 +36,7 @@
         .btn-yt { background: #fceceb; color: #e03131; }
         .btn-photo { background: #f1f3f5; color: #495057; }
         #fav-section { margin-top: 50px; border-top: 2px dashed #ddd; padding-top: 30px; }
-        #loading { text-align: center; display: none; padding: 40px; font-weight: bold; color: var(--primary-color); }
+        #loading { text-align: center; display: none; padding: 40px; font-weight: bold; color: var(--primary-color); font-size: 16px; }
     </style>
 </head>
 <body>
@@ -43,11 +46,17 @@
         <div class="card">
             <h3 class="section-title">人数</h3>
             <div class="selector-group">
-                <div class="selector-item" onclick="setPerson(1, this)">1人分</div><div class="selector-item active" onclick="setPerson(2, this)">2人分</div><div class="selector-item" onclick="setPerson(3, this)">3人分</div><div class="selector-item" onclick="setPerson(4, this)">4人分</div><div class="selector-item" onclick="setPerson(5, this)">5人分</div>
+                <div class="selector-item" onclick="setPerson(1, this)">1人分</div>
+                <div class="selector-item active" onclick="setPerson(2, this)">2人分</div>
+                <div class="selector-item" onclick="setPerson(3, this)">3人分</div>
+                <div class="selector-item" onclick="setPerson(4, this)">4人分</div>
+                <div class="selector-item" onclick="setPerson(5, this)">5人分</div>
             </div>
             <h3 class="section-title">何を作る？</h3>
             <div class="selector-group">
-                <div class="selector-item active" onclick="setType('主菜（メインおかず）', this)">🍚 メイン</div><div class="selector-item" onclick="setType('副菜（あと一品・サラダ・和え物）', this)">🥗 副菜</div><div class="selector-item" onclick="setType('スープ（汁物・鍋物）', this)">🥣 スープ</div>
+                <div class="selector-item active" onclick="setType('主菜（メインおかず）', this)">🍚 メイン</div>
+                <div class="selector-item" onclick="setType('副菜（あと一品・サラダ・和え物）', this)">🥗 副菜</div>
+                <div class="selector-item" onclick="setType('スープ（汁物・鍋物）', this)">🥣 スープ</div>
             </div>
             <h3 class="section-title">冷蔵庫の食材</h3>
             <div class="chip-container" id="chipBox">
@@ -59,7 +68,11 @@
             </div>
             <h3 class="section-title">今日のこだわり</h3>
             <select id="condition">
-                <option value="洗い物最小限の爆速レシピ">✨ 時短・楽ちん</option><option value="500kcal以内のヘルシーな料理">🌿 ヘルシー</option><option value="ビールに合うガッツリおつまみ">🍺 ガッツリおつまみ</option><option value="子どもが喜ぶ味付け">🧒 子ども優先</option><option value="冷蔵庫一掃レシピ">♻️ 冷蔵庫を空にしたい</option>
+                <option value="洗い物最小限の爆速レシピ">✨ 時短・楽ちん</option>
+                <option value="500kcal以内のヘルシーな料理">🌿 ヘルシー</option>
+                <option value="ビールに合うガッツリおつまみ">🍺 ガッツリおつまみ</option>
+                <option value="子どもが喜ぶ味付け">🧒 子ども優先</option>
+                <option value="冷蔵庫一掃レシピ">♻️ 冷蔵庫を空にしたい</option>
             </select>
             <button class="main-btn" onclick="generate()">献立を3つ爆速で出す！</button>
         </div>
@@ -69,16 +82,9 @@
     </div>
     <script>
         let selectedPerson = 2, selectedType = '主菜（メインおかず）', selectedChips = [], favorites = JSON.parse(localStorage.getItem('fav_recipes') || '[]');
-        const messages = [
-            "🫙 献立くんが冷蔵庫の奥で、正体不明のタッパーと対峙しています...",
-            "🧼 献立くんが今日の洗い物の量を見て、静かに涙を拭いています...",
-            "🥛 献立くんが「賞味期限が1日切れた牛乳」を飲めるかどうか検品中です...",
-            "🍥 献立くんが「あと一品」の隙間に、ちくわを詰めるべきか真剣に悩んでいます...",
-            "👨‍🍳 現在、献立くんがエプロンの紐を後ろで結ぶのに苦戦しています...",
-            "🧙 献立くんが、昨日の残り物をどうやって「新作」に見せかけるか画策中です...",
-            "🫑 献立くんが、ピーマンの種の飛び散り具合を物理演算しています...",
-            "🐟 献立くんが、魚焼きグリルの掃除を明日の自分に押し付ける決意をしました...",
-            "❄️ 献立くんが、冷蔵庫のドアを閉めた瞬間に「買い忘れ」を思い出してフリーズしています..."
+        
+const messages = [
+            "献立くんが料理本をめくっています...📖"
         ];
 
         window.onload = () => { if(localStorage.getItem('openai_api_key')) document.getElementById('apiKeyInput').value = localStorage.getItem('openai_api_key'); renderFavs(); }
@@ -100,41 +106,41 @@
             document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
         }
 
-async function generate() {
-    const key = document.getElementById('apiKeyInput').value, ing = document.getElementById('ingredients').value;
-    if(!key) return alert('APIキーを入れてな！');
-    
-    const loader = document.getElementById('loading');
-    loader.innerText = messages[Math.floor(Math.random() * messages.length)];
-    loader.style.display = 'block';
-    document.getElementById('result').innerHTML = '';
-    
-    const systemPrompt = `あなたは多忙な親を助ける、アイデア豊富な爆速料理研究家。
-    【重要】余計な挨拶不要。JSONのみ出力。
-    1. 主菜は必ずタンパク質を含み、白米に合うおかず。
-    2. 材料は必ず具体的な分量を含めること。
-    3. 手順は3行以内で極めて簡潔に。
-    4. 【脱・マンネリ】定番の味付け（醤油・塩コショウのみ等）から少しだけひねりを加え、「いつもと違うけど美味しい」意外な組み合わせや調味料の使い方を提案せよ。`;
+        async function generate() {
+            const key = document.getElementById('apiKeyInput').value, ing = document.getElementById('ingredients').value;
+            if(!key) return alert('APIキーを入れてな！');
+            
+            const loader = document.getElementById('loading');
+            loader.innerText = messages[Math.floor(Math.random() * messages.length)];
+            loader.style.display = 'block';
+            document.getElementById('result').innerHTML = '';
+            
+            const systemPrompt = `あなたはアイデア豊富な爆速料理研究家。
+            【重要】余計な挨拶不要。JSONのみ出力。
+            1. 主菜は必ずタンパク質を含み、白米に合うおかず。サラダ単体禁止。
+            2. 材料(materials)は必ず具体的な分量(g,個,大さじ等)を含める。
+            3. 手順(steps)は3行以内で極めて簡潔に。
+            4. 【脱マンネリ】定番から少しひねりを加え「いつもと違うけど美味しい」提案をせよ。`;
 
-    try {
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-            body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: `【${selectedPerson}人分】${selectedType}、食材:${ing || "指定なし"}、こだわり:${document.getElementById('condition').value}。献立3つ。JSON:{"recipes":[{"name":"料理名","cal":"kcal","wash":"★☆☆","materials":"材料(分量)","steps":"手順","time":"15分"}]}` }
-                ],
-                response_format: { type: "json_object" },
-                max_tokens: 1000,
-                temperature: 0.8 // 少し高めにして、よりクリエイティブな提案を出すように調整
-            })
-        });
-        const data = await res.json();
-        JSON.parse(data.choices[0].message.content).recipes.slice(0, 3).forEach(r => renderRecipe(r, 'result', true));
-    } catch (e) { alert('エラーや！'); } finally { loader.style.display = 'none'; }
-}
+            try {
+                const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify({
+                        model: "gpt-4o-mini",
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: `【${selectedPerson}人分】${selectedType}、食材:${ing || "指定なし"}、こだわり:${document.getElementById('condition').value}。献立3つ。JSON:{"recipes":[{"name":"料理名","cal":"kcal","wash":"★☆☆","materials":"材料(分量)","steps":"手順","time":"15分"}]}` }
+                        ],
+                        response_format: { type: "json_object" },
+                        max_tokens: 1000,
+                        temperature: 0.8
+                    })
+                });
+                const data = await res.json();
+                JSON.parse(data.choices[0].message.content).recipes.slice(0, 3).forEach(r => renderRecipe(r, 'result', true));
+            } catch (e) { alert('エラーや！'); } finally { loader.style.display = 'none'; }
+        }
 
         function renderRecipe(r, targetId, isNew) {
             const div = document.createElement('div'); div.className = 'recipe-item';
