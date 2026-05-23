@@ -83,8 +83,29 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ persons, type, ingredients: allIngredients, condition }),
       });
-      const data = await res.json();
-      setRecipes(data.recipes || []);
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) throw new Error("ストリーム取得失敗");
+
+      let done = false;
+      while (!done) {
+        const { value, done: streamDone } = await reader.read();
+        done = streamDone;
+        if (!value) continue;
+
+        const text = decoder.decode(value);
+        for (const line of text.split("\n")) {
+          if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
+          const parsed = JSON.parse(line.slice(6));
+          if (parsed.error) { alert("エラーが発生しました"); return; }
+          setRecipes((prev) => {
+            const next = [...prev];
+            next[parsed.index] = parsed.recipe;
+            return next;
+          });
+        }
+      }
     } catch {
       alert("エラーが発生しました");
     } finally {

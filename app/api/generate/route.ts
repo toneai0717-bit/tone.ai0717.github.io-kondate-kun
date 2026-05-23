@@ -1,19 +1,26 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-export async function POST(req: NextRequest) {
-  try {
-    const { persons, type, ingredients, condition } = await req.json();
+const extractTag = (xml: string, tag: string) => {
+  const match = xml.match(new RegExp(`<${tag}>(.*?)<\\/${tag}>`, "s"));
+  return match ? match[1].trim() : "";
+};
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2048,
-      messages: [
-        {
-          role: "user",
-          content: `あなたはアイデア豊富な料理研究家。${persons}人分の${type}を3つ提案してください。
+const parseRecipe = (block: string) => ({
+  name: extractTag(block, "NAME"),
+  time: extractTag(block, "TIME"),
+  cal: extractTag(block, "CAL"),
+  wash: extractTag(block, "WASH"),
+  materials: extractTag(block, "MATERIALS"),
+  steps: extractTag(block, "STEPS"),
+});
+
+export async function POST(req: NextRequest) {
+  const { persons, type, ingredients, condition } = await req.json();
+
+  const prompt = `あなたはアイデア豊富な料理研究家。${persons}人分の${type}を3つ提案してください。
 
 食材：${ingredients || "指定なし"}
 こだわり：${condition}
@@ -47,38 +54,59 @@ export async function POST(req: NextRequest) {
 <STEPS>手順</STEPS>
 </RECIPE3>
 
-定番からひとひねり加えた「いつもと違うけど美味しい」提案をすること。`,
-        },
-      ],
-    });
+定番からひとひねり加えた「いつもと違うけど美味しい」提案をすること。`;
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "";
+  const encoder = new TextEncoder();
+  const sentRecipes = new Set<number>();
 
-    const extractTag = (xml: string, tag: string) => {
-      const match = xml.match(new RegExp(`<${tag}>(.*?)<\\/${tag}>`, "s"));
-      return match ? match[1].trim() : "";
-    };
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        let buffer = "";
 
-    const parseRecipe = (block: string) => ({
-      name: extractTag(block, "NAME"),
-      time: extractTag(block, "TIME"),
-      cal: extractTag(block, "CAL"),
-      wash: extractTag(block, "WASH"),
-      materials: extractTag(block, "MATERIALS"),
-      steps: extractTag(block, "STEPS"),
-    });
+        const stream = await client.messages.stream({
+          model: "claude-haiku-4-5",
+          max_tokens: 2048,
+          messages: [{ role: "user", content: prompt }],
+        });
 
-    const recipes = [1, 2, 3].map((i) => {
-      const match = text.match(
-        new RegExp(`<RECIPE${i}>(.*?)</RECIPE${i}>`, "s")
-      );
-      return match ? parseRecipe(match[1]) : null;
-    }).filter(Boolean);
+        for await (const chunk of stream) {
+          if (
+            chunk.type === "content_block_delta" &&
+            chunk.delta.type === "text_delta"
+          ) {
+            buffer += chunk.delta.text;
 
-    return NextResponse.json({ recipes });
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
-  }
+            for (let i = 1; i <= 3; i++) {
+              if (sentRecipes.has(i)) continue;
+              const match = buffer.match(
+                new RegExp(`<RECIPE${i}>(.*?)</RECIPE${i}>`, "s")
+              );
+              if (match) {
+                const recipe = parseRecipe(match[1]);
+                const payload = JSON.stringify({ index: i - 1, recipe });
+                controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
+                sentRecipes.add(i);
+              }
+            }
+          }
+        }
+
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      } catch (e) {
+        const err = JSON.stringify({ error: String(e) });
+        controller.enqueue(encoder.encode(`data: ${err}\n\n`));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }
