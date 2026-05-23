@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Recipe {
   name: string;
@@ -54,14 +54,18 @@ export default function Home() {
   const [condition, setCondition] = useState(CONDITIONS[0].value);
   const [loading, setLoading] = useState(false);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [favorites, setFavorites] = useState<Recipe[]>(() => {
-    if (typeof window === "undefined") return [];
+  const [favorites, setFavorites] = useState<Recipe[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // localStorageはクライアントのみで初期化（hydrationミスマッチ回避）
+  useEffect(() => {
     try {
-      return JSON.parse(localStorage.getItem("kondate_favs") || "[]");
+      const saved = JSON.parse(localStorage.getItem("kondate_favs") || "[]");
+      setFavorites(saved);
     } catch {
-      return [];
+      setFavorites([]);
     }
-  });
+  }, []);
 
   const toggleChip = (label: string) => {
     setSelectedChips((prev) =>
@@ -71,10 +75,15 @@ export default function Home() {
 
   const allIngredients = [
     ...selectedChips,
-    ...extraIngredients.split(/[、,，\s]+/).filter(Boolean),
+    ...extraIngredients.split(/[、,，]+/).map(s => s.trim()).filter(Boolean),
   ].join("、");
 
   const generate = async () => {
+    // 連打防止：前のリクエストをキャンセル
+    if (abortRef.current) abortRef.current.abort();
+    const abort = new AbortController();
+    abortRef.current = abort;
+
     setLoading(true);
     setRecipes([]);
     try {
@@ -82,11 +91,16 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ persons, type, ingredients: allIngredients, condition }),
+        signal: abort.signal,
       });
 
+      if (!res.ok) throw new Error(`サーバーエラー: ${res.status}`);
+
       const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
       if (!reader) throw new Error("ストリーム取得失敗");
+      // stream: true でUTF-8マルチバイト文字の途中切れを防ぐ
+      const decoder = new TextDecoder("utf-8", { fatal: false });
+      let lineBuffer = "";
 
       let done = false;
       while (!done) {
@@ -94,19 +108,33 @@ export default function Home() {
         done = streamDone;
         if (!value) continue;
 
-        const text = decoder.decode(value);
-        for (const line of text.split("\n")) {
-          if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
-          const parsed = JSON.parse(line.slice(6));
-          if (parsed.error) { alert("エラーが発生しました"); return; }
-          setRecipes((prev) => {
-            const next = [...prev];
-            next[parsed.index] = parsed.recipe;
-            return next;
-          });
+        // チャンク境界で行が切れる場合に備えてバッファリング
+        lineBuffer += decoder.decode(value, { stream: !done });
+        const lines = lineBuffer.split("\n");
+        // 最後の要素は不完全な可能性があるので次のチャンクに持ち越す
+        lineBuffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data: ") || trimmed === "data: [DONE]") continue;
+          try {
+            const parsed = JSON.parse(trimmed.slice(6));
+            if (parsed.error) { alert("エラーが発生しました"); return; }
+            const idx = typeof parsed.index === "number" && parsed.index >= 0 && parsed.index <= 2
+              ? parsed.index : null;
+            if (idx === null || !parsed.recipe) continue;
+            setRecipes((prev) => {
+              const next = [...prev];
+              next[idx] = parsed.recipe;
+              return next;
+            });
+          } catch {
+            // 不完全なJSONはスキップ（次のチャンクで補完される）
+          }
         }
       }
-    } catch {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return; // 連打キャンセルは無視
       alert("エラーが発生しました");
     } finally {
       setLoading(false);
@@ -115,14 +143,21 @@ export default function Home() {
 
   const toggleFav = (recipe: Recipe) => {
     setFavorites((prev) => {
-      const exists = prev.some((f) => f.name === recipe.name);
-      const next = exists ? prev.filter((f) => f.name !== recipe.name) : [...prev, recipe];
-      localStorage.setItem("kondate_favs", JSON.stringify(next));
+      const exists = prev.some((f) => f.name === recipe.name && f.materials === recipe.materials);
+      const next = exists
+        ? prev.filter((f) => !(f.name === recipe.name && f.materials === recipe.materials))
+        : [...prev, recipe];
+      try {
+        localStorage.setItem("kondate_favs", JSON.stringify(next));
+      } catch {
+        // QuotaExceededError等は無視（メモリ上のstateは更新する）
+      }
       return next;
     });
   };
 
-  const isFav = (recipe: Recipe) => favorites.some((f) => f.name === recipe.name);
+  const isFav = (recipe: Recipe) =>
+    favorites.some((f) => f.name === recipe.name && f.materials === recipe.materials);
 
   return (
     <div className="min-h-screen bg-orange-50 font-sans">
@@ -258,7 +293,7 @@ export default function Home() {
           <div className="space-y-4">
             <p className="text-xs text-stone-400 text-center uppercase tracking-widest">今日の献立候補</p>
             {recipes.map((recipe, i) => (
-              <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-orange-50">
+              <div key={recipe?.name ?? i} className="bg-white rounded-2xl p-5 shadow-sm border border-orange-50">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 pr-3">
                     <p className="font-black text-stone-800 text-lg leading-tight">{recipe.name}</p>
